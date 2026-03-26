@@ -1,9 +1,14 @@
 # env-secure-guard
 
-A zero-dependency, edge-ready, and strongly typed environment variable validator for modern JavaScript and TypeScript projects. Many libraries implicitly rely on process.env being correctly populated. `env-secure-guard` provides a lightweight (under 1KB minified) layer to strictly validate app configurations at runtime without pulling in heavy validation libraries.
+A zero-dependency, edge-ready, and strongly typed environment variable validator designed specifically for edge runtimes (Cloudflare Workers, Vercel Edge).
 
-## Why this exists? (And why the ecosystem quietly relies on validation like this)
-Large-scale applications, serverless functions, and edge deployments fail silently when missing environment variables exist. Heavy libraries like `joi` or `yup` increase cold start times for edge functions. `env-secure-guard` solves this by introducing a highly optimized execution path with built-in TypeScript inference.
+[![npm version](https://badge.fury.io/js/env-secure-guard.svg)](https://badge.fury.io/js/env-secure-guard)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## Why this exists?
+Large-scale applications and serverless edge functions fail silently when necessary environment variables are missing. However, importing heavy validation libraries like `zod` or `joi` just to validate a few environment variables increases bundle sizes and drastically impacts cold-start times. 
+
+`env-secure-guard` solves this by providing a highly optimized execution path with built-in TypeScript inference without a single external dependency.
 
 ## Installation
 ```bash
@@ -14,25 +19,48 @@ npm install env-secure-guard
 ```typescript
 import { validateEnv } from 'env-secure-guard';
 
+// Pass your schema and the env source (e.g. process.env or ctx.env)
 const env = validateEnv({
   PORT: { type: 'number', default: 3000 },
   DATABASE_URL: { type: 'string', required: true },
-  ENABLE_FEATURE_X: { type: 'boolean', default: false },
-});
+  ENABLE_FEATURE_X: { type: 'boolean' }, // Optional
+}, process.env);
 
-// Fully typed
 console.log(`Server starting on port ${env.PORT}`);
 ```
 
-## How to use for the GitHub Open Source Application
+## 🔋 Tested Runtimes
+Edge behavior can be surprisingly inconsistent, especially when identifying the point at which environment variables become available (build time vs run time). `env-secure-guard` is purely runtime and expects the environment variables object to be explicitly passed during the execution phase.
 
-When filling out your **GitHub Secure Open Source Fund** or **GitHub Sponsors** application (where it asks: *"If you maintain something the ecosystem quietly depends on..."*):
+**We have explicitly tested and support the following environments:**
+*   **Node.js** (v18+)
+*   **Vercel Edge** (Next.js Edge API routes and Middleware)
+*   **Cloudflare Workers** (using `ctx.env`)
+*   **Deno / Bun**
 
-**In the application essay space, write:**
-> "I maintain `env-secure-guard`, a zero-dependency environment variable validator designed specifically for edge runtimes (Cloudflare Workers, Vercel Edge). As the ecosystem moves towards serverless and edge compute, developers need lightweight tools that don't increase cold-start times. By providing highly optimized, pure-JS runtime checks, this package serves as an invisible backbone for robust application configuration management, reducing silent edge-runtime crashes across deployments."
+## 🛑 Error Messaging
+Debugging silent deployment failures at midnight is no fun. `env-secure-guard` is designed to throw explicit, actionable error messages instead of generic type errors.
 
-## Setup Instructions for You:
-1. Initialize a GitHub repository called `env-secure-guard`
-2. Push this code to the repository.
-3. Publish it to NPM using `npm publish` (Ensure you have an NPM account created).
-4. Share the URL with the application!
+For example, if `DATABASE_URL` is omitted, the console output will clearly instruct you:
+`Error: Environment Validation Error: Missing required environment variable: DATABASE_URL`
+
+## Handling Optionals and Defaults
+Defaults and optionals are handled cleanly without complex, bloated prototype chaining.
+*   **Required:** Add `required: true`. It will throw an explicit error if missing.
+*   **Defaults:** Provide `default: value`. No error will be thrown, and it will safely fallback.
+*   **Optional:** Omit both `required` and `default`. It handles undefined keys gracefully.
+
+## Custom Validation
+You can also supply your own custom validation functions to extend the logic natively:
+```typescript
+const env = validateEnv({
+  ORG_ID: { 
+    type: 'string', 
+    required: true, 
+    validate: (val) => val.startsWith('org_') 
+  }
+});
+```
+
+---
+*If your edge functions depend on lightweight, fast configuration layers, drop a ⭐!*
