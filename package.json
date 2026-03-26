@@ -1,0 +1,25 @@
+{
+  "name": "env-secure-guard",
+  "version": "1.0.0",
+  "description": "Zero-dependency, edge-ready environment variable validation and type inference for modern JS runtimes.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "env",
+    "validation",
+    "edge",
+    "serverless",
+    "typescript",
+    "zero-dependency"
+  ],
+  "author": "MangaVerse Developer",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
