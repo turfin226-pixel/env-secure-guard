@@ -1,0 +1,19 @@
+{
+  "name": "MangaVerse",
+  "short_name": "MangaVerse",
+  "description": "Read, Create & Earn — The ultimate manga creator platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080812",
+  "theme_color": "#080812",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "categories": ["entertainment", "social"],
+  "screenshots": [],
+  "shortcuts": [
+    { "name": "Discover", "url": "/", "description": "Browse manga" }
+  ]
+}
