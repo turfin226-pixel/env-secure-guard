@@ -1,6 +1,6 @@
 /* ── creator.js: Upload Manga + Chapters + Polls ── */
 // Cloudinary config (free image hosting — no billing needed)
-const CLOUDINARY_CLOUD = 'mangaverese';
+const CLOUDINARY_CLOUD = 'df1n2npht';
 const CLOUDINARY_PRESET = 'mangaverse_upload'; // unsigned preset
 
 async function uploadToCloudinary(file) {
