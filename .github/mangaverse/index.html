@@ -136,7 +136,7 @@
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut as fbSignOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut as fbSignOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, setDoc, query, orderBy, limit, where, onSnapshot, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     // ── FIREBASE CONFIG (user fills this in) ──
@@ -152,9 +152,28 @@
     const app = initializeApp(firebaseConfig);
     window.auth = getAuth(app);
     window.db   = getFirestore(app);
-    window.FB = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, fbSignOut, updateProfile, collection, addDoc, getDocs, getDoc, doc, updateDoc, setDoc, query, orderBy, limit, where, onSnapshot, increment, serverTimestamp };
+    window.FB = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, fbSignOut, updateProfile, collection, addDoc, getDocs, getDoc, doc, updateDoc, setDoc, query, orderBy, limit, where, onSnapshot, increment, serverTimestamp };
 
-    // Boot
+    // ── Mobile redirect result handler ──
+    // When user comes back from Google redirect on mobile
+    getRedirectResult(window.auth).then(async result => {
+      if (result?.user) {
+        const user = result.user;
+        const userRef = doc(window.db, 'users', user.uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+          const { setDoc, serverTimestamp } = window.FB;
+          await setDoc(userRef, {
+            name: user.displayName,
+            email: user.email,
+            role: 'reader',
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+    }).catch(() => {});
+
+    // Boot — auth state listener
     window.FB.onAuthStateChanged(window.auth, user => {
       if (user) {
         window.currentUser = user;

@@ -1,4 +1,38 @@
 /* ── auth.js: Firebase Auth ── */
+
+// Detect mobile (touch devices / small screen)
+const isMobile = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+// Google Sign-In: popup on desktop, redirect on mobile
+async function googleSignIn() {
+  const provider = new window.FB.GoogleAuthProvider();
+  showLoading();
+  try {
+    if (isMobile()) {
+      // Mobile: redirect (no popup blocker issue)
+      await window.FB.signInWithRedirect(window.auth, provider);
+      // Page will reload after Google auth — handled in index.html getRedirectResult
+    } else {
+      // Desktop: popup
+      const res = await window.FB.signInWithPopup(window.auth, provider);
+      const userRef = window.FB.doc(window.db, 'users', res.user.uid);
+      const snap = await window.FB.getDoc(userRef);
+      if (!snap.exists()) {
+        await window.FB.setDoc(userRef, {
+          name: res.user.displayName,
+          email: res.user.email,
+          role: 'reader',
+          createdAt: window.FB.serverTimestamp()
+        });
+      }
+      showToast('Welcome! 🎉', 'success');
+    }
+  } catch (e) {
+    hideLoading();
+    showToast('Google sign in failed: ' + (e.message || ''), 'error');
+  }
+}
+
 document.getElementById('loginBtn').addEventListener('click', async () => {
   const email = document.getElementById('loginEmail').value.trim();
   const pass  = document.getElementById('loginPassword').value;
@@ -13,28 +47,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   hideLoading();
 });
 
-document.getElementById('googleLoginBtn').addEventListener('click', async () => {
-  showLoading();
-  try {
-    const provider = new window.FB.GoogleAuthProvider();
-    const res = await window.FB.signInWithPopup(window.auth, provider);
-    // Save to Firestore if new user
-    const userRef = window.FB.doc(window.db, 'users', res.user.uid);
-    const snap = await window.FB.getDoc(userRef);
-    if (!snap.exists()) {
-      await window.FB.setDoc(userRef, {
-        name: res.user.displayName,
-        email: res.user.email,
-        role: 'reader',
-        createdAt: window.FB.serverTimestamp()
-      });
-    }
-    showToast('Welcome! 🎉', 'success');
-  } catch (e) {
-    showToast('Google sign in failed', 'error');
-  }
-  hideLoading();
-});
+document.getElementById('googleLoginBtn').addEventListener('click', () => googleSignIn());
 
 document.getElementById('registerBtn').addEventListener('click', async () => {
   const name = document.getElementById('regName').value.trim();
@@ -58,6 +71,5 @@ document.getElementById('registerBtn').addEventListener('click', async () => {
   hideLoading();
 });
 
-document.getElementById('googleRegisterBtn').addEventListener('click', async () => {
-  document.getElementById('googleLoginBtn').click();
-});
+document.getElementById('googleRegisterBtn').addEventListener('click', () => googleSignIn());
+
