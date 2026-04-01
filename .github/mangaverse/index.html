@@ -3,219 +3,183 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MangaVerse — Read, Create & Earn</title>
-  <meta name="description" content="MangaVerse — The ultimate manga & story creator platform. Upload your manga, earn VP Coins, and build your fanbase." />
-  <meta name="theme-color" content="#0d0d1a" />
+  <title>MangaVerse — Read, Create & Vote</title>
+  <meta name="description" content="MangaVerse is where creators share original manga and readers vote on story decisions. Be part of the journey." />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet" />
-
-  <!-- Chart.js for analytics -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-  <!-- ══════════════════════════════════════════════
-       AUTH SCREEN (shown when not logged in)
-  ══════════════════════════════════════════════ -->
-  <div id="authScreen" class="auth-screen hidden">
+  <!-- ── AUTH SCREEN ── -->
+  <div id="authScreen">
     <div class="auth-bg">
       <div class="auth-orb orb1"></div>
       <div class="auth-orb orb2"></div>
-      <div class="auth-orb orb3"></div>
     </div>
-
-    <div class="auth-container">
-      <div class="auth-brand">
-        <div class="brand-logo">
-          <span class="logo-icon">⚡</span>
-          <span class="logo-text">MangaVerse</span>
-        </div>
-        <p class="brand-tagline">Read. Create. Earn.</p>
+    <div class="auth-center">
+      <div class="brand-logo">
+        <span class="brand-icon">⚡</span>
+        <span class="brand-name">MangaVerse</span>
       </div>
+      <p class="brand-tagline">Creators share manga. Readers shape the story.</p>
 
-      <!-- Login Form -->
+      <!-- Login -->
       <div id="loginForm" class="auth-card">
-        <h2 class="auth-title">Welcome Back</h2>
-        <p class="auth-subtitle">Sign in to your account</p>
+        <h2>Welcome Back</h2>
+        <p class="auth-sub">Sign in to continue</p>
         <div class="form-group">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" />
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="you@example.com" />
         </div>
         <div class="form-group">
-          <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+          <label>Password</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" />
         </div>
-        <button class="btn-primary w-full" id="loginBtn" onclick="Auth.login()">Sign In</button>
-        <div class="auth-divider"><span>or</span></div>
-        <button class="btn-ghost w-full" onclick="Auth.showRegister()">Create an Account</button>
-        <p class="auth-demo-hint">Demo: use any email + password "demo123"</p>
+        <button class="btn-primary w-full" id="loginBtn">Sign In</button>
+        <button class="btn-google w-full" id="googleLoginBtn">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" /> Continue with Google
+        </button>
+        <p class="auth-switch">No account? <span onclick="showRegister()">Create one</span></p>
       </div>
 
-      <!-- Register Form -->
+      <!-- Register -->
       <div id="registerForm" class="auth-card hidden">
-        <h2 class="auth-title">Join MangaVerse</h2>
-        <p class="auth-subtitle">Start reading or creating today</p>
-        <div class="form-group">
-          <label for="regName">Username</label>
-          <input type="text" id="regName" placeholder="SakuraManga42" />
+        <h2>Join MangaVerse</h2>
+        <p class="auth-sub">Create your account</p>
+        <div class="role-selector">
+          <button class="role-btn active" id="roleReader" onclick="selectRole('reader')">📖 Reader</button>
+          <button class="role-btn" id="roleCreator" onclick="selectRole('creator')">✏️ Creator</button>
         </div>
         <div class="form-group">
-          <label for="regEmail">Email</label>
+          <label>Display Name</label>
+          <input type="text" id="regName" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
           <input type="email" id="regEmail" placeholder="you@example.com" />
         </div>
         <div class="form-group">
-          <label for="regPassword">Password</label>
+          <label>Password</label>
           <input type="password" id="regPassword" placeholder="Min 6 characters" />
         </div>
-        <div class="role-selector">
-          <p class="role-label">I want to join as:</p>
-          <div class="role-options">
-            <button class="role-btn active" id="roleReader" onclick="Auth.selectRole('reader')">
-              <span class="role-icon">📖</span>
-              <span class="role-name">Reader</span>
-              <span class="role-desc">Browse & support creators</span>
-            </button>
-            <button class="role-btn" id="roleCreator" onclick="Auth.selectRole('creator')">
-              <span class="role-icon">✏️</span>
-              <span class="role-name">Creator</span>
-              <span class="role-desc">Upload manga & stories</span>
-            </button>
-          </div>
-        </div>
-        <button class="btn-primary w-full" id="registerBtn" onclick="Auth.register()">Create Account</button>
-        <div class="auth-divider"><span>or</span></div>
-        <button class="btn-ghost w-full" onclick="Auth.showLogin()">Already have an account?</button>
+        <button class="btn-primary w-full" id="registerBtn">Create Account</button>
+        <button class="btn-google w-full" id="googleRegisterBtn">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" /> Continue with Google
+        </button>
+        <p class="auth-switch">Have account? <span onclick="showLogin()">Sign in</span></p>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════
-       MAIN APP (shown when logged in)
-  ══════════════════════════════════════════════ -->
-  <div id="appShell" class="app-shell hidden">
+  <!-- ── APP SHELL ── -->
+  <div id="appShell" class="hidden">
 
     <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand" onclick="navigate('discover')">
-        <div class="brand-logo-sm">
-          <span class="logo-icon-sm">⚡</span>
-          <span class="logo-text-sm">MangaVerse</span>
-        </div>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">⚡</span>
+        <span class="brand-name">MangaVerse</span>
       </div>
-
-      <nav class="sidebar-nav" id="sidebarNav">
-        <a href="#" class="nav-item active" data-page="discover" onclick="navigate('discover'); return false;">
+      <nav class="sidebar-nav">
+        <a class="nav-item active" id="nav-discover" onclick="navigate('discover')">
           <span class="nav-icon">🔍</span><span class="nav-label">Discover</span>
         </a>
-        <a href="#" class="nav-item" data-page="leaderboard" onclick="navigate('leaderboard'); return false;">
-          <span class="nav-icon">🏆</span><span class="nav-label">Rankings</span>
+        <a class="nav-item" id="nav-creator" onclick="navigate('creator')">
+          <span class="nav-icon">✏️</span><span class="nav-label">Create</span>
         </a>
-        <a href="#" class="nav-item" data-page="store" onclick="navigate('store'); return false;">
-          <span class="nav-icon">🪙</span><span class="nav-label">VP Store</span>
-        </a>
-        <div class="nav-separator"></div>
-        <a href="#" class="nav-item creator-only hidden" data-page="creator" onclick="navigate('creator'); return false;">
-          <span class="nav-icon">✏️</span><span class="nav-label">Creator Hub</span>
-        </a>
-        <a href="#" class="nav-item" data-page="profile" onclick="navigate('profile'); return false;">
+        <a class="nav-item" id="nav-profile" onclick="navigate('profile')">
           <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
         </a>
       </nav>
-
-      <div class="sidebar-vp-display">
-        <div class="vp-label">Your VP Coins</div>
-        <div class="vp-amount" id="sidebarVP">0</div>
-        <div class="vp-inr" id="sidebarVPInr">≈ ₹0</div>
-      </div>
-
-      <div class="sidebar-footer">
-        <button class="btn-logout" onclick="Auth.logout()">🚪 Sign Out</button>
-      </div>
+      <button class="btn-signout" onclick="signOut()">🚪 Sign Out</button>
     </aside>
 
-    <!-- Main Layout -->
-    <div class="main-wrapper">
-      <!-- Top Bar -->
+    <!-- Main -->
+    <div class="main-wrap">
+      <!-- Topbar -->
       <header class="topbar">
         <div class="topbar-left">
-          <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()">☰</button>
-          <div class="page-title" id="pageTitle">Discover</div>
+          <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
+          <h1 class="page-title" id="pageTitle">Discover</h1>
         </div>
         <div class="topbar-right">
           <div class="search-wrap">
-            <span class="search-icon-btn">🔍</span>
-            <input type="text" id="globalSearch" placeholder="Search manga, creators..." class="search-input" oninput="Reader.search(this.value)" />
+            <span>🔍</span>
+            <input type="text" id="searchInput" placeholder="Search manga..." onkeyup="handleSearch(this.value)" />
           </div>
-          <div class="topbar-vp">
-            <span class="vp-badge-icon">🪙</span>
-            <span id="topbarVP">0</span>
-          </div>
-          <div class="notif-btn" id="notifBtn" onclick="Notifications.toggle()">
-            🔔
-            <span class="notif-badge hidden" id="notifBadge">0</span>
-          </div>
-          <div class="user-avatar" id="userAvatar" onclick="navigate('profile')">MV</div>
+          <div class="user-avatar" id="userAvatar">U</div>
         </div>
       </header>
 
-      <!-- Notification Panel -->
-      <div class="notif-panel hidden" id="notifPanel">
-        <div class="notif-header">
-          <span class="notif-title">Notifications</span>
-          <button class="notif-clear" onclick="Notifications.clearAll()">Clear All</button>
-        </div>
-        <div class="notif-list" id="notifList">
-          <div class="notif-empty">No notifications yet</div>
-        </div>
-      </div>
-
-      <!-- Page Content -->
-      <main class="content" id="mainContent">
-        <!-- Injected by JS -->
+      <!-- Content -->
+      <main id="mainContent" class="main-content">
+        <div class="loading-state"><div class="spinner"></div></div>
       </main>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════
-       MODAL OVERLAY
-  ══════════════════════════════════════ -->
-  <div id="modalOverlay" class="modal-overlay hidden" onclick="closeModal()"></div>
-  <div id="modalContainer" class="modal-container hidden"></div>
-
-  <!-- TOAST -->
-  <div id="toastContainer" class="toast-container"></div>
-
-  <!-- DAILY BONUS POPUP -->
-  <div id="dailyBonusPopup" class="daily-bonus-popup hidden">
-    <div class="bonus-content">
-      <div class="bonus-icon">🎁</div>
-      <div class="bonus-title">Daily Bonus!</div>
-      <div class="bonus-amount" id="bonusAmount">+10 VP</div>
-      <button class="btn-primary" onclick="VPCoin.claimDailyBonus()">Claim Now!</button>
-    </div>
+  <!-- ── MODAL ── -->
+  <div id="modalOverlay" class="hidden" onclick="closeModal()">
+    <div id="modalContent" onclick="event.stopPropagation()"></div>
   </div>
 
-  <!-- Scripts -->
-  <script src="app.js"></script>
+  <!-- ── TOAST ── -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- ── LOADING OVERLAY ── -->
+  <div id="loadingOverlay" class="hidden">
+    <div class="spinner big"></div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut as fbSignOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, setDoc, query, orderBy, limit, where, onSnapshot, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // ── FIREBASE CONFIG (user fills this in) ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0wnOzvPQ3g0O0hand3cAdez2ikMLv2Vs",
+      authDomain: "mangaverese.firebaseapp.com",
+      projectId: "mangaverese",
+      storageBucket: "mangaverese.firebasestorage.app",
+      messagingSenderId: "1019245187393",
+      appId: "1:1019245187393:web:f3704e47353f03aeae51c0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    window.auth = getAuth(app);
+    window.db   = getFirestore(app);
+    window.FB = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, fbSignOut, updateProfile, collection, addDoc, getDocs, getDoc, doc, updateDoc, setDoc, query, orderBy, limit, where, onSnapshot, increment, serverTimestamp };
+
+    // Boot
+    window.FB.onAuthStateChanged(window.auth, user => {
+      if (user) {
+        window.currentUser = user;
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('appShell').classList.remove('hidden');
+        document.getElementById('userAvatar').textContent = (user.displayName || user.email || 'U')[0].toUpperCase();
+        navigate('discover');
+      } else {
+        window.currentUser = null;
+        document.getElementById('appShell').classList.add('hidden');
+        document.getElementById('authScreen').classList.remove('hidden');
+      }
+    });
+  </script>
+
   <script src="auth.js"></script>
-  <script src="vpcoin.js"></script>
-  <script src="notifications.js"></script>
+  <script src="discover.js"></script>
   <script src="reader.js"></script>
   <script src="creator.js"></script>
-  <script src="store.js"></script>
-  <script src="leaderboard.js"></script>
+  <script src="profile.js"></script>
+  <script src="app.js"></script>
+
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-      });
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   </script>
 </body>

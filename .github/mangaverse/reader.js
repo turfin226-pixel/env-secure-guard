@@ -1,412 +1,309 @@
-/* ── reader.js: Discover, Manga Detail, Chapter Reader ── */
+/* ── reader.js: Manga Detail + Chapter Reader + Story Vote ── */
 const Reader = {
 
-  activeGenre: 'All',
-  activeSearch: '',
+  // ── MANGA DETAIL ──────────────────────────────────────────
+  async renderDetail(manga) {
+    if (!manga) return navigate('discover');
+    document.getElementById('pageTitle').textContent = manga.title || '';
 
-  // ── DISCOVER ──────────────────────────────
-  renderDiscover() {
-    const mangas = APP.mangas;
-    const genres = ['All','Action','Romance','Fantasy','SciFi','Horror','SliceOfLife'];
-    const filtered = this.activeGenre === 'All' ? mangas : mangas.filter(m => m.genre === this.activeGenre);
-    const hot = mangas.filter(m => m.isHot);
-    const newThis = [...mangas].sort((a,b) => b.createdAt - a.createdAt).slice(0,6);
-    const featured = mangas[0];
+    // Increment views
+    try {
+      await window.FB.updateDoc(window.FB.doc(window.db, 'manga', manga.id), { views: window.FB.increment(1) });
+    } catch (_) {}
 
-    document.getElementById('mainContent').innerHTML = `
-      <div class="hero-banner">
-        <div class="hero-content">
-          <div class="hero-tag">⚡ MangaVerse Trending</div>
-          <div class="hero-title">${featured.title}</div>
-          <div class="hero-desc">${featured.description}</div>
-          <div class="hero-actions">
-            <button class="btn-primary" onclick="Reader.openManga('${featured.id}')">📖 Start Reading</button>
-            <button class="btn-secondary" onclick="Reader.openManga('${featured.id}')">+ Bookmark</button>
-          </div>
-        </div>
-      </div>
+    // Load chapters
+    let chapters = [];
+    try {
+      const snap = await window.FB.getDocs(
+        window.FB.query(
+          window.FB.collection(window.db, 'chapters'),
+          window.FB.where('mangaId', '==', manga.id),
+          window.FB.orderBy('chapterNumber', 'asc')
+        )
+      );
+      chapters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (_) {}
 
-      ${hot.length ? `
-      <div class="section-header"><div class="section-title">🔥 Hot Right Now</div></div>
-      <div class="manga-grid" style="margin-bottom:28px;">${hot.map(m=>this.mangaCard(m)).join('')}</div>` : ''}
+    const cover = manga.coverURL
+      ? `<img src="${manga.coverURL}" alt="${manga.title}" style="width:100%;border-radius:var(--radius);display:block;" />`
+      : `<div class="manga-cover-ph" style="aspect-ratio:2/3;border-radius:var(--radius)"><span style="font-size:4rem">📖</span><span class="cover-txt">${manga.title}</span></div>`;
 
-      <div class="section-header">
-        <div class="section-title">📚 All Manga</div>
-        <span class="section-link" onclick="navigate('discover')">View All</span>
-      </div>
-      <div class="genre-pills">
-        ${genres.map(g=>`<div class="genre-pill ${this.activeGenre===g?'active':''}" onclick="Reader.filterGenre('${g}')">${g}</div>`).join('')}
-      </div>
-      <div class="manga-grid">${filtered.map(m=>this.mangaCard(m)).join('')}</div>
-
-      <div class="section-header" style="margin-top:28px;"><div class="section-title">🆕 New This Week</div></div>
-      <div class="manga-grid">${newThis.map(m=>this.mangaCard(m)).join('')}</div>
-    `;
-  },
-
-  mangaCard(m) {
-    const cover = m.coverData
-      ? `<img class="manga-card-img" src="${m.coverData}" alt="${m.title}" />`
-      : `<div class="manga-cover-placeholder"><span>${m.emoji||'📖'}</span><span class="cover-title-text">${m.title}</span></div>`;
-    const hasPaid = m.chapters.some(c=>!c.free);
-    const badge = m.isHot ? '<span class="badge-hot">HOT</span>' : (hasPaid ? '<span class="badge-paid">PAID</span>' : '<span class="badge-free">FREE</span>');
-    return `<div class="manga-card" onclick="Reader.openManga('${m.id}')">
-      ${cover}
-      <div class="manga-card-body">
-        <div class="manga-card-title">${m.title}</div>
-        <div class="manga-card-meta">${badge}<span>${m.genre}</span><span>⭐${m.rating}</span></div>
-      </div>
-    </div>`;
-  },
-
-  filterGenre(g) {
-    this.activeGenre = g;
-    this.renderDiscover();
-  },
-
-  search(q) {
-    const query = (q||'').trim().toLowerCase();
-    if (!query) { navigate('discover'); return; }
-    APP.currentPage = 'searchResults';
-    this.activeSearch = query;
-    document.getElementById('pageTitle').textContent = `Search: "${q}"`;
-    this.renderSearch();
-  },
-
-  renderSearch() {
-    const q = this.activeSearch;
-    const results = APP.mangas.filter(m =>
-      m.title.toLowerCase().includes(q) ||
-      m.genre.toLowerCase().includes(q) ||
-      m.creator.toLowerCase().includes(q) ||
-      m.description.toLowerCase().includes(q)
-    );
-    document.getElementById('mainContent').innerHTML = `
-      <div class="section-header">
-        <div class="section-title">🔍 Results for "${q}"</div>
-        <span class="section-link" onclick="navigate('discover')">← Back</span>
-      </div>
-      ${results.length
-        ? `<div class="manga-grid">${results.map(m=>this.mangaCard(m)).join('')}</div>`
-        : `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No results found</div><div class="empty-desc">Try different keywords or browse genres.</div></div>`
-      }
-    `;
-  },
-
-  // ── MANGA DETAIL ──────────────────────────
-  openManga(id) {
-    const m = APP.mangas.find(x => x.id === id);
-    if (!m) return;
-    APP.currentManga = m;
-    navigate('mangaDetail');
-    // track read history
-    const u = APP.user;
-    if (u) {
-      if (!u.readHistory) u.readHistory = [];
-      if (!u.readHistory.includes(id)) { u.readHistory.unshift(id); APP.user = u; }
-    }
-  },
-
-  renderMangaDetail() {
-    const m = APP.currentManga;
-    if (!m) return navigate('discover');
-    const u = APP.user;
-    const allUsers = APP.users;
-    const creatorUser = allUsers.find(x => x.id === m.creatorId);
-    const tier = creatorUser ? getTier(creatorUser.vpCoins||0) : getTier(0);
-    const isBookmarked = u?.bookmarks?.includes(m.id);
-
-    const cover = m.coverData
-      ? `<img src="${m.coverData}" alt="${m.title}" style="width:100%;aspect-ratio:2/3;object-fit:cover;display:block;" />`
-      : `<div class="manga-cover-placeholder" style="aspect-ratio:2/3;">${m.emoji||'📖'}<span class="cover-title-text">${m.title}</span></div>`;
-
-    const comments = (m.comments||[]).slice().sort((a,b)=>(b.isSuper?1:-1)-(a.isSuper?1:-1));
+    const isCreator = window.currentUser?.uid === manga.creatorId;
 
     document.getElementById('mainContent').innerHTML = `
-      <button class="btn-ghost btn-sm" onclick="navigate('discover')" style="margin-bottom:16px;">← Back</button>
-      <div class="manga-detail-hero">
-        <div class="manga-detail-cover">${cover}</div>
-        <div class="manga-detail-info">
-          <div class="manga-detail-title">${m.title}</div>
-          <div class="manga-detail-meta">
-            <span class="tag">${m.genre}</span>
-            <span class="tag">⭐ ${m.rating}</span>
-            <span class="tag">👁 ${(m.totalViews||0).toLocaleString()} views</span>
-            ${m.isHot?'<span class="badge-hot">HOT</span>':''}
+      <button class="btn-secondary btn-sm" onclick="navigate('discover')" style="margin-bottom:20px">← Back</button>
+
+      <div class="detail-hero">
+        <div class="detail-cover">${cover}</div>
+        <div class="detail-info">
+          <h1 class="detail-title">${manga.title}</h1>
+          <div class="detail-creator">
+            <div class="creator-ava">${(manga.creatorName || 'A')[0].toUpperCase()}</div>
+            <span>by <strong>${manga.creatorName || 'Unknown'}</strong></span>
           </div>
-          <div class="creator-mini">
-            <div class="creator-mini-avatar">${m.creator.slice(0,2).toUpperCase()}</div>
-            <div class="creator-mini-name">@${m.creator}</div>
-            <span class="tier-badge ${tier.cls}">${tier.label}</span>
+          <div class="stat-row">
+            <div class="stat-item"><strong>${manga.views || 0}</strong> views</div>
+            <div class="stat-item"><strong>${chapters.length}</strong> chapters</div>
           </div>
-          <p class="manga-desc">${m.description}</p>
-          <div class="manga-actions">
-            <button class="btn-primary" onclick="Reader.startReading('${m.id}')">📖 Start Reading</button>
-            <button class="btn-vp" onclick="Reader.openTipModal('${m.id}')">🪙 Tip Creator</button>
-            <button class="btn-secondary btn-sm" onclick="Reader.toggleBookmark('${m.id}')">
-              ${isBookmarked ? '🔖 Bookmarked' : '+ Bookmark'}
-            </button>
+          <div class="detail-tags">
+            <span class="badge badge-genre">${manga.genre || 'Manga'}</span>
+            ${manga.status ? `<span class="badge badge-new">${manga.status}</span>` : ''}
+          </div>
+          <p class="detail-synopsis">${manga.synopsis || 'No synopsis provided.'}</p>
+          <div class="detail-actions">
+            ${chapters.length ? `<button class="btn-primary" onclick="Reader.openChapter('${chapters[0].id}','${manga.id}')">📖 Read Chapter 1</button>` : ''}
+            ${isCreator ? `<button class="btn-secondary" onclick="Creator.openAddChapter('${manga.id}')">+ Add Chapter</button>` : ''}
           </div>
         </div>
       </div>
 
-      <div class="section-header"><div class="section-title">📋 Chapters (${m.chapters.length})</div></div>
-      <div class="chapter-list" style="margin-bottom:28px;">
-        ${m.chapters.map((ch,i) => {
-          const unlocked = ch.free || VPCoin.isChapterUnlocked(ch.id);
-          return `<div class="chapter-item" onclick="Reader.openChapter('${m.id}','${ch.id}')">
-            <div class="chapter-item-left">
-              <span class="chapter-num">Chapter ${i+1}</span>
-              <span class="chapter-title-text">${ch.title}</span>
-            </div>
-            <div class="chapter-item-right">
-              ${ch.free ? '<span class="badge-free">FREE</span>' : (unlocked ? '<span class="badge-free">UNLOCKED</span>' : `<span class="badge-paid">🔒 ${ch.price} VP</span>`)}
-              <span style="color:var(--text-3)">${(ch.views||0).toLocaleString()} views</span>
-            </div>
-          </div>`;}).join('')}
-      </div>
-
-      <div class="comments-section">
-        <div class="comments-title">💬 Comments (${(m.comments||[]).length})</div>
-        <div class="comment-form-row">
-          <textarea id="commentInput" placeholder="Write a comment..." class="form-group"></textarea>
-          <div class="comment-form-btns">
-            <button class="btn-secondary btn-sm" onclick="Reader.postComment('${m.id}',false)">Post</button>
-            <button class="btn-vp btn-sm" onclick="Reader.openSuperCommentModal('${m.id}')">⭐ Super</button>
-          </div>
-        </div>
-        <div id="commentsList">
-          ${comments.length ? comments.map(c=>this.commentHTML(c)).join('') : '<div class="empty-state" style="padding:20px"><div class="empty-icon">💬</div><div class="empty-title">No comments yet</div><div class="empty-desc">Be the first to comment!</div></div>'}
-        </div>
+      <div class="section-row"><div class="section-title">📋 Chapters</div></div>
+      <div class="chapter-list">
+        ${chapters.length
+          ? chapters.map((ch, i) => `
+            <div class="chapter-item" onclick="Reader.openChapter('${ch.id}','${manga.id}')">
+              <div class="chapter-item-left">
+                <span class="ch-num">Ch. ${ch.chapterNumber || (i+1)}</span>
+                <div>
+                  <div class="ch-title">${ch.title}</div>
+                  ${ch.poll?.question ? '<div style="font-size:.72rem;color:var(--accent2);margin-top:2px">🗳️ Has story vote</div>' : ''}
+                </div>
+              </div>
+              <div class="ch-meta">
+                <span>👁 ${ch.views || 0}</span>
+                <span>${timeAgo(ch.publishedAt)}</span>
+              </div>
+            </div>`).join('')
+          : `<div class="empty-state" style="padding:30px"><div class="empty-desc">No chapters yet. ${isCreator ? '<br><button class="btn-primary btn-sm" onclick="Creator.openAddChapter(\''+manga.id+'\')">+ Add First Chapter</button>' : 'Check back soon!'}</div></div>`
+        }
       </div>
     `;
   },
 
-  commentHTML(c) {
-    const superClass = c.isSuper ? 'super-comment' : '';
-    return `<div class="comment-item">
-      <div class="comment-ava">${c.author.slice(0,2).toUpperCase()}</div>
-      <div class="comment-body">
-        <div class="${superClass}">
-          ${c.isSuper ? `<div class="super-tag">⭐ Super Comment · Pinned ${c.duration} days</div>` : ''}
-          <div class="comment-header">
-            <span class="comment-name">${c.author}</span>
-            <span class="comment-time">${timeAgo(c.time)}</span>
-            ${c.isSuper ? '<span class="tag" style="background:rgba(245,158,11,.1);color:var(--accent3)">👑 Supporter</span>' : ''}
-          </div>
-          <div class="comment-text">${c.text}</div>
-        </div>
-      </div>
-    </div>`;
-  },
+  // ── CHAPTER READER ──────────────────────────────────────────
+  async renderChapter(manga, chapter) {
+    if (!manga || !chapter) { navigate('discover'); return; }
 
-  postComment(mangaId, isSuper, superDuration) {
-    const text = document.getElementById('commentInput')?.value?.trim();
-    if (!text) return showToast('Write something first!','error');
-    const u = APP.user;
-    const mangas = APP.mangas;
-    const idx = mangas.findIndex(m => m.id === mangaId);
-    if (idx === -1) return;
-    if (!mangas[idx].comments) mangas[idx].comments = [];
-    mangas[idx].comments.unshift({ author: u.name, text, time: Date.now(), isSuper: !!isSuper, duration: superDuration||0 });
-    APP.mangas = mangas;
-    APP.currentManga = mangas[idx];
-    closeModal();
-    showToast(isSuper ? '⭐ Super Comment posted!' : 'Comment posted!', 'success');
-    if (isSuper) Notifications.add('⭐', `${u.name} posted a Super Comment on "${mangas[idx].title}"`, mangas[idx].creatorId);
-    this.renderMangaDetail();
-  },
+    // Get latest chapter data (with poll)
+    let ch = chapter;
+    try {
+      const snap = await window.FB.getDoc(window.FB.doc(window.db, 'chapters', chapter.id));
+      if (snap.exists()) ch = { id: snap.id, ...snap.data() };
+    } catch (_) {}
 
-  openSuperCommentModal(mangaId) {
-    openModal(`<div class="modal-box">
-      <button class="modal-close" onclick="closeModal()">✕</button>
-      <div class="modal-title">⭐ Super Comment</div>
-      <div class="modal-subtitle">Pin your comment — creator earns 70% of VP spent!</div>
-      <div class="tip-amount-btns" id="scDurationBtns">
-        <button class="tip-amount-btn selected" onclick="selectSCDuration(1,10,this)">📌 1 Day — 10 VP</button>
-        <button class="tip-amount-btn" onclick="selectSCDuration(7,50,this)">📌 7 Days — 50 VP</button>
-        <button class="tip-amount-btn" onclick="selectSCDuration(30,150,this)">📌 30 Days — 150 VP</button>
-      </div>
-      <div class="form-group">
-        <label>Your comment</label>
-        <textarea id="superCommentText" placeholder="Write an amazing comment..." style="min-height:80px;width:100%;padding:12px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font-family:inherit;font-size:.9rem;outline:none;resize:vertical;"></textarea>
-      </div>
-      <div style="font-size:.82rem;color:var(--text-2);margin-top:4px;">Your balance: <strong style="color:var(--accent3)">${APP.user?.vpCoins||0} VP</strong></div>
-      <div class="modal-actions">
-        <button class="btn-ghost" onclick="closeModal()">Cancel</button>
-        <button class="btn-vp" onclick="Reader.postSuperComment('${mangaId}')">⭐ Post Super Comment</button>
-      </div>
-    </div>`);
-    window._scDuration = 1; window._scPrice = 10;
-  },
+    // Increment chapter views
+    try { await window.FB.updateDoc(window.FB.doc(window.db, 'chapters', ch.id), { views: window.FB.increment(1) }); } catch (_) {}
 
-  postSuperComment(mangaId) {
-    const text = document.getElementById('superCommentText')?.value?.trim();
-    if (!text) return showToast('Write your comment!','error');
-    const price = window._scPrice || 10;
-    const duration = window._scDuration || 1;
-    const m = APP.mangas.find(x=>x.id===mangaId);
-    if (!m) return;
-    const creatorShare = Math.floor(price * 0.70);
-    if (!VPCoin.spend(price, `Super Comment on "${m.title}"`)) return showToast('Not enough VP!','error');
-    VPCoin.earn(creatorShare, `Super Comment earned: "${m.title}"`, m.creatorId);
-    // post comment
-    const mangas = APP.mangas;
-    const idx = mangas.findIndex(x=>x.id===mangaId);
-    if (!mangas[idx].comments) mangas[idx].comments = [];
-    mangas[idx].comments.unshift({ author:APP.user.name, text, time:Date.now(), isSuper:true, duration });
-    APP.mangas = mangas;
-    APP.currentManga = mangas[idx];
-    closeModal();
-    showToast(`⭐ Super Comment posted! Creator earned ${creatorShare} VP`, 'vp');
-    Notifications.add('⭐',`Super Comment on "${m.title}" — you earned ${creatorShare} VP!`, m.creatorId);
-    this.renderMangaDetail();
-  },
+    // Load all chapters for prev/next
+    let allChapters = [];
+    try {
+      const snap = await window.FB.getDocs(
+        window.FB.query(window.FB.collection(window.db, 'chapters'), window.FB.where('mangaId', '==', manga.id), window.FB.orderBy('chapterNumber', 'asc'))
+      );
+      allChapters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (_) {}
 
-  startReading(mangaId) {
-    const m = APP.mangas.find(x=>x.id===mangaId);
-    if (!m || !m.chapters.length) return;
-    APP.currentManga = m;
-    APP.currentChapter = m.chapters[0];
-    navigate('reader');
-    // Award reading VP
-    const u = APP.user;
-    const today = new Date().toDateString();
-    if (u.lastReadDate !== today) {
-      VPCoin.earn(2, 'First read of the day bonus');
-      u.lastReadDate = today;
-      APP.user = u;
-      showToast('+2 VP First Read Bonus!','vp');
-    }
-  },
-
-  openChapter(mangaId, chapterId) {
-    const m = APP.mangas.find(x=>x.id===mangaId);
-    if (!m) return;
-    const ch = m.chapters.find(x=>x.id===chapterId);
-    if (!ch) return;
-    if (!ch.free && !VPCoin.isChapterUnlocked(ch.id)) {
-      if (!VPCoin.unlockChapter(m, ch)) return;
-    }
-    APP.currentManga = m;
-    APP.currentChapter = ch;
-    navigate('reader');
-    // increment views
-    const mangas = APP.mangas;
-    const mi = mangas.findIndex(x=>x.id===mangaId);
-    const ci = mangas[mi].chapters.findIndex(x=>x.id===chapterId);
-    mangas[mi].chapters[ci].views = (mangas[mi].chapters[ci].views||0)+1;
-    mangas[mi].totalViews = (mangas[mi].totalViews||0)+1;
-    APP.mangas = mangas;
-    // count reads
-    const u = APP.user;
-    u.readCount = (u.readCount||0)+1;
-    APP.user = u;
-  },
-
-  toggleBookmark(mangaId) {
-    const u = APP.user;
-    if (!u.bookmarks) u.bookmarks = [];
-    const idx = u.bookmarks.indexOf(mangaId);
-    if (idx === -1) { u.bookmarks.push(mangaId); showToast('Bookmarked!','success'); }
-    else { u.bookmarks.splice(idx,1); showToast('Bookmark removed',''); }
-    APP.user = u;
-    this.renderMangaDetail();
-  },
-
-  openTipModal(mangaId) {
-    const m = APP.mangas.find(x=>x.id===mangaId);
-    if (!m) return;
-    openModal(`<div class="modal-box">
-      <button class="modal-close" onclick="closeModal()">✕</button>
-      <div class="modal-title">🪙 Tip @${m.creator}</div>
-      <div class="modal-subtitle">Show your support! Creator gets 70%, platform keeps 30%.</div>
-      <div style="font-size:.82rem;color:var(--text-2);margin-bottom:10px;">Your VP: <strong style="color:var(--accent3)">${APP.user?.vpCoins||0}</strong></div>
-      <div class="tip-amount-btns" id="tipBtns">
-        ${[10,25,50,100,200].map(a=>`<button class="tip-amount-btn ${a===25?'selected':''}" onclick="selectTip(${a},this)">${a} VP</button>`).join('')}
-      </div>
-      <div class="modal-actions">
-        <button class="btn-ghost" onclick="closeModal()">Cancel</button>
-        <button class="btn-vp" onclick="Reader.sendTip('${mangaId}')">🪙 Send Tip</button>
-      </div>
-    </div>`);
-    window._tipAmt = 25;
-  },
-
-  sendTip(mangaId) {
-    const amt = window._tipAmt || 25;
-    const m = APP.mangas.find(x=>x.id===mangaId);
-    if (!m) return;
-    if (VPCoin.tip(APP.user.id, m.creatorId, amt, `Tip for "${m.title}"`)) {
-      closeModal();
-      showToast(`Tipped ${amt} VP to @${m.creator}! ❤️`,'vp');
-    } else {
-      showToast('Not enough VP!','error');
-    }
-  },
-
-  // ── READER ──────────────────────────────
-  renderReader() {
-    const m = APP.currentManga;
-    const ch = APP.currentChapter;
-    if (!m || !ch) return navigate('discover');
-    const chIdx = m.chapters.findIndex(x=>x.id===ch.id);
-    const hasPrev = chIdx > 0;
-    const hasNext = chIdx < m.chapters.length - 1;
-
-    // 5 placeholder pages per chapter
-    const pages = ch.pages || Array.from({length:5},(_,i)=>({num:i+1}));
+    const idx = allChapters.findIndex(c => c.id === ch.id);
+    const prevCh = idx > 0 ? allChapters[idx - 1] : null;
+    const nextCh = idx < allChapters.length - 1 ? allChapters[idx + 1] : null;
+    const pages = ch.pageURLs || [];
 
     document.getElementById('mainContent').innerHTML = `
       <div class="reader-nav">
-        <button class="btn-ghost btn-sm" onclick="Reader.goReaderChapter(${chIdx-1})" ${hasPrev?'':'disabled style="opacity:.3"'}>← Prev</button>
-        <div class="reader-chapter-info">
-          <h3>${m.title}</h3>
-          <p>Chapter ${chIdx+1}: ${ch.title}</p>
+        <button class="btn-secondary btn-sm" ${prevCh ? `onclick="Reader.openChapter('${prevCh.id}','${manga.id}')"` : 'disabled style="opacity:.3"'}>← Prev</button>
+        <div class="reader-info">
+          <h3>${manga.title}</h3>
+          <p>Chapter ${ch.chapterNumber || (idx+1)}: ${ch.title}</p>
         </div>
-        <button class="btn-ghost btn-sm" onclick="Reader.goReaderChapter(${chIdx+1})" ${hasNext?'':'disabled style="opacity:.3"'}>Next →</button>
+        <button class="btn-secondary btn-sm" ${nextCh ? `onclick="Reader.openChapter('${nextCh.id}','${manga.id}')"` : 'disabled style="opacity:.3"'}>Next →</button>
       </div>
+
       <div class="reader-pages">
-        ${pages.map(p=> ch.pageImages?.[p.num-1]
-          ? `<div class="reader-page"><img src="${ch.pageImages[p.num-1]}" alt="Page ${p.num}" /></div>`
-          : `<div class="reader-page">
-              <div class="page-placeholder">
-                <div class="page-num-big">${p.num}</div>
-                <p>📖 Page ${p.num} of ${pages.length}</p>
-                <p style="margin-top:6px;font-size:.75rem;opacity:.6">${ch.title}</p>
-              </div>
-             </div>`
-        ).join('')}
+        ${pages.length
+          ? pages.map(url => `<div class="reader-page"><img src="${url}" alt="page" loading="lazy" /></div>`).join('')
+          : `<div class="page-placeholder"><div class="page-num-big">?</div><p style="color:var(--text3)">No pages uploaded for this chapter yet.</p></div>`
+        }
       </div>
-      <div style="text-align:center;padding:20px 0;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-        ${hasPrev?`<button class="btn-ghost" onclick="Reader.goReaderChapter(${chIdx-1})">← Prev Chapter</button>`:''}
-        <button class="btn-secondary" onclick="Reader.openManga('${m.id}')">📋 All Chapters</button>
-        ${hasNext?`<button class="btn-primary" onclick="Reader.goReaderChapter(${chIdx+1})">Next Chapter →</button>`:''}
+
+      <!-- Story Vote -->
+      <div id="voteSection"></div>
+
+      <!-- Comments -->
+      <div id="commentsSection"></div>
+
+      <div class="reader-footer">
+        ${prevCh ? `<button class="btn-secondary" onclick="Reader.openChapter('${prevCh.id}','${manga.id}')">← Prev Chapter</button>` : ''}
+        <button class="btn-secondary" onclick="navigate('mangaDetail',{manga:window._manga})">📋 All Chapters</button>
+        ${nextCh ? `<button class="btn-primary" onclick="Reader.openChapter('${nextCh.id}','${manga.id}')">Next Chapter →</button>` : ''}
       </div>
-      <button class="reader-support-btn" onclick="Reader.openTipModal('${m.id}')">🪙 Support Creator</button>
+    `;
+
+    // Render poll + comments async
+    this.renderVote(ch, manga, nextCh);
+    this.renderComments(ch.id);
+  },
+
+  async openChapter(chapterId, mangaId) {
+    showLoading();
+    try {
+      let manga = window._manga;
+      if (!manga || manga.id !== mangaId) {
+        const snap = await window.FB.getDoc(window.FB.doc(window.db, 'manga', mangaId));
+        manga = { id: snap.id, ...snap.data() };
+        window._manga = manga;
+      }
+      const chSnap = await window.FB.getDoc(window.FB.doc(window.db, 'chapters', chapterId));
+      const chapter = { id: chSnap.id, ...chSnap.data() };
+      window._chapter = chapter;
+      hideLoading();
+      navigate('reader', { manga, chapter });
+    } catch (e) {
+      hideLoading();
+      showToast('Error loading chapter', 'error');
+    }
+  },
+
+  // ── STORY VOTE ──────────────────────────────────────────────
+  async renderVote(ch, manga, nextCh) {
+    const voteEl = document.getElementById('voteSection');
+    if (!voteEl) return;
+    const poll = ch.poll;
+    if (!poll || !poll.question) { voteEl.innerHTML = ''; return; }
+
+    const uid = window.currentUser?.uid;
+    const myVote = uid && poll.votes ? poll.votes[uid] : null;
+    const hasVoted = myVote !== null && myVote !== undefined;
+    const totalVotes = poll.votes ? Object.keys(poll.votes).length : 0;
+    const isClosed = !poll.isOpen;
+    const showResults = hasVoted || isClosed;
+
+    const optionCounts = (poll.options || []).map((_, i) =>
+      Object.values(poll.votes || {}).filter(v => v === i).length
+    );
+    const maxCount = Math.max(...optionCounts, 1);
+
+    voteEl.innerHTML = `
+      <div class="vote-section">
+        <div class="vote-label">🗳️ Story Vote${isClosed ? ' — Closed' : ''}</div>
+        <div class="vote-question">${poll.question}</div>
+        <div class="vote-options" id="voteOptions">
+          ${(poll.options || []).map((opt, i) => {
+            const pct = totalVotes > 0 ? Math.round((optionCounts[i] / totalVotes) * 100) : 0;
+            const isWon = isClosed && optionCounts[i] === maxCount;
+            const isMine = hasVoted && myVote === i;
+            if (showResults) {
+              return `<div class="vote-option-btn ${isMine ? 'voted' : ''} ${isWon ? 'won' : ''}" style="cursor:default">
+                <div class="vote-bar ${isWon ? 'won-bar' : ''}" style="width:${pct}%"></div>
+                <div class="vote-option-text">
+                  <span>${isWon ? '🏆 ' : ''}${opt}${isMine ? ' ✓' : ''}</span>
+                  <span class="vote-pct">${pct}%</span>
+                </div>
+              </div>`;
+            } else {
+              return `<button class="vote-option-btn" onclick="Reader.castVote('${ch.id}','${manga.id}',${i})">
+                <div class="vote-option-text"><span>${opt}</span></div>
+              </button>`;
+            }
+          }).join('')}
+        </div>
+        <div class="vote-meta">
+          <span>👥 ${totalVotes} reader${totalVotes !== 1 ? 's' : ''} voted</span>
+          ${isClosed ? '<span class="vote-closed-badge">✅ Closed</span>' : '<span style="color:var(--accent2)">⏳ Vote closes with next chapter</span>'}
+          ${nextCh && !isClosed ? `<span>→ Chapter ${nextCh.chapterNumber} coming</span>` : ''}
+        </div>
+      </div>
     `;
   },
 
-  goReaderChapter(idx) {
-    const m = APP.currentManga;
-    if (!m || idx < 0 || idx >= m.chapters.length) return;
-    const ch = m.chapters[idx];
-    if (!ch.free && !VPCoin.isChapterUnlocked(ch.id)) {
-      if(!VPCoin.unlockChapter(m, ch)) return;
+  async castVote(chapterId, mangaId, optionIndex) {
+    const uid = window.currentUser?.uid;
+    if (!uid) return showToast('Sign in to vote', 'error');
+    showLoading();
+    try {
+      const chRef = window.FB.doc(window.db, 'chapters', chapterId);
+      await window.FB.updateDoc(chRef, {
+        [`poll.votes.${uid}`]: optionIndex
+      });
+      // Refresh render
+      const snap = await window.FB.getDoc(chRef);
+      const ch = { id: snap.id, ...snap.data() };
+      window._chapter = ch;
+
+      let allChapters = [];
+      try {
+        const s = await window.FB.getDocs(
+          window.FB.query(window.FB.collection(window.db, 'chapters'), window.FB.where('mangaId', '==', mangaId), window.FB.orderBy('chapterNumber', 'asc'))
+        );
+        allChapters = s.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (_) {}
+      const idx = allChapters.findIndex(c => c.id === chapterId);
+      const nextCh = idx < allChapters.length - 1 ? allChapters[idx + 1] : null;
+
+      hideLoading();
+      showToast('Vote cast! 🗳️', 'success');
+      this.renderVote(ch, window._manga, nextCh);
+    } catch (e) {
+      hideLoading();
+      showToast('Vote failed: ' + e.message, 'error');
     }
-    APP.currentChapter = ch;
-    navigate('reader');
+  },
+
+  // ── COMMENTS ───────────────────────────────────────────────
+  async renderComments(chapterId) {
+    const el = document.getElementById('commentsSection');
+    if (!el) return;
+
+    let comments = [];
+    try {
+      const snap = await window.FB.getDocs(
+        window.FB.query(window.FB.collection(window.db, 'comments'), window.FB.where('chapterId', '==', chapterId), window.FB.orderBy('createdAt', 'desc'))
+      );
+      comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (_) {}
+
+    el.innerHTML = `
+      <div class="comments-section">
+        <div class="comments-header">💬 Comments (${comments.length})</div>
+        <div class="comment-input-row">
+          <textarea id="commentText" placeholder="Share your thoughts..." rows="2"></textarea>
+          <button class="btn-primary btn-sm" onclick="Reader.postComment('${chapterId}')">Post</button>
+        </div>
+        <div id="commentsList">
+          ${comments.length
+            ? comments.map(c => `
+              <div class="comment-item">
+                <div class="comment-ava">${(c.userName || 'A')[0].toUpperCase()}</div>
+                <div class="comment-body">
+                  <span class="comment-name">${c.userName || 'Anonymous'}</span>
+                  <span class="comment-time">${timeAgo(c.createdAt)}</span>
+                  <div class="comment-text">${c.text}</div>
+                </div>
+              </div>`).join('')
+            : '<div class="comment-empty">No comments yet. Be the first!</div>'
+          }
+        </div>
+      </div>
+    `;
+  },
+
+  async postComment(chapterId) {
+    const text = document.getElementById('commentText')?.value?.trim();
+    const uid  = window.currentUser?.uid;
+    const name = window.currentUser?.displayName || 'Anonymous';
+    if (!uid) return showToast('Sign in to comment', 'error');
+    if (!text) return showToast('Write something first', 'error');
+    showLoading();
+    try {
+      await window.FB.addDoc(window.FB.collection(window.db, 'comments'), {
+        chapterId, text, userId: uid, userName: name,
+        createdAt: window.FB.serverTimestamp()
+      });
+      hideLoading();
+      showToast('Comment posted!', 'success');
+      this.renderComments(chapterId);
+    } catch (e) {
+      hideLoading();
+      showToast('Failed to post comment', 'error');
+    }
   }
 };
-
-// tip/supercomment helper fns
-function selectTip(amt, btn) {
-  window._tipAmt = amt;
-  document.querySelectorAll('#tipBtns .tip-amount-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-}
-function selectSCDuration(days, price, btn) {
-  window._scDuration = days; window._scPrice = price;
-  document.querySelectorAll('#scDurationBtns .tip-amount-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-}

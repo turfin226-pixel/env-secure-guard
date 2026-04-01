@@ -1,105 +1,63 @@
-/* ── auth.js ── */
-const Auth = {
-  selectedRole: 'reader',
-
-  selectRole(role) {
-    this.selectedRole = role;
-    document.getElementById('roleReader').classList.toggle('active', role === 'reader');
-    document.getElementById('roleCreator').classList.toggle('active', role === 'creator');
-  },
-
-  showRegister() {
-    document.getElementById('loginForm').classList.add('hidden');
-    document.getElementById('registerForm').classList.remove('hidden');
-  },
-
-  showLogin() {
-    document.getElementById('registerForm').classList.add('hidden');
-    document.getElementById('loginForm').classList.remove('hidden');
-  },
-
-  login() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const pass  = document.getElementById('loginPassword').value;
-    if (!email || !pass) return showToast('Fill in all fields','error');
-
-    const users = APP.users;
-    let user = users.find(u => u.email === email);
-
-    if (!user) {
-      // demo: auto-create if doesn't exist
-      if (pass.length < 6) return showToast('Password min 6 chars','error');
-      user = {
-        id: 'u_' + Date.now(),
-        name: email.split('@')[0],
-        email, pass,
-        role: 'reader',
-        vpCoins: 50,
-        loginStreak: 1,
-        lastLogin: null,
-        readCount: 0,
-        works: 0,
-        joinedAt: Date.now(),
-        ledger: [],
-        bookmarks: [],
-        readHistory: [],
-        notifications: []
-      };
-      users.push(user);
-      APP.users = users;
-      VPCoin.addLedger('Welcome bonus!', 50, user.id);
-    }
-
-    APP.user = user;
-    showApp(user);
-    showToast(`Welcome back, ${user.name}! 🎉`,'success');
-  },
-
-  register() {
-    const name  = document.getElementById('regName').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const pass  = document.getElementById('regPassword').value;
-    const role  = this.selectedRole;
-
-    if (!name || !email || !pass) return showToast('Fill in all fields','error');
-    if (pass.length < 6) return showToast('Password min 6 chars','error');
-
-    const users = APP.users;
-    if (users.find(u => u.email === email)) return showToast('Email already registered','error');
-
-    const newUser = {
-      id: 'u_' + Date.now(),
-      name, email, pass, role,
-      vpCoins: 50,
-      loginStreak: 1,
-      lastLogin: null,
-      readCount: 0,
-      works: 0,
-      joinedAt: Date.now(),
-      ledger: [],
-      bookmarks: [],
-      readHistory: [],
-      notifications: []
-    };
-
-    users.push(newUser);
-    APP.users = users;
-    APP.user = newUser;
-
-    VPCoin.addLedger('Welcome bonus!', 50, newUser.id);
-    Notifications.add('🎉', `Welcome to MangaVerse, ${name}! You received 50 VP as a welcome bonus.`, newUser.id);
-
-    showApp(newUser);
-    showToast(`Welcome, ${name}! 🌸 You got 50 VP free!`, 'vp');
-  },
-
-  logout() {
-    APP.user = null;
-    document.getElementById('appShell').classList.add('hidden');
-    document.getElementById('authScreen').classList.remove('hidden');
-    document.getElementById('loginForm').classList.remove('hidden');
-    document.getElementById('registerForm').classList.add('hidden');
-    document.getElementById('loginEmail').value = '';
-    document.getElementById('loginPassword').value = '';
+/* ── auth.js: Firebase Auth ── */
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPassword').value;
+  if (!email || !pass) return showToast('Fill in all fields', 'error');
+  showLoading();
+  try {
+    await window.FB.signInWithEmailAndPassword(window.auth, email, pass);
+    showToast('Welcome back! 🎉', 'success');
+  } catch (e) {
+    showToast(e.code === 'auth/user-not-found' ? 'No account with this email' : e.code === 'auth/wrong-password' ? 'Wrong password' : 'Sign in failed', 'error');
   }
-};
+  hideLoading();
+});
+
+document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+  showLoading();
+  try {
+    const provider = new window.FB.GoogleAuthProvider();
+    const res = await window.FB.signInWithPopup(window.auth, provider);
+    // Save to Firestore if new user
+    const userRef = window.FB.doc(window.db, 'users', res.user.uid);
+    const snap = await window.FB.getDoc(userRef);
+    if (!snap.exists()) {
+      await window.FB.setDoc(userRef, {
+        name: res.user.displayName,
+        email: res.user.email,
+        role: 'reader',
+        createdAt: window.FB.serverTimestamp()
+      });
+    }
+    showToast('Welcome! 🎉', 'success');
+  } catch (e) {
+    showToast('Google sign in failed', 'error');
+  }
+  hideLoading();
+});
+
+document.getElementById('registerBtn').addEventListener('click', async () => {
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass  = document.getElementById('regPassword').value;
+  const role  = window.getSelectedRole();
+  if (!name || !email || !pass) return showToast('Fill in all fields', 'error');
+  if (pass.length < 6) return showToast('Password min 6 characters', 'error');
+  showLoading();
+  try {
+    const res = await window.FB.createUserWithEmailAndPassword(window.auth, email, pass);
+    await window.FB.updateProfile(res.user, { displayName: name });
+    await window.FB.setDoc(window.FB.doc(window.db, 'users', res.user.uid), {
+      name, email, role,
+      createdAt: window.FB.serverTimestamp()
+    });
+    showToast(`Welcome, ${name}! 🌸`, 'success');
+  } catch (e) {
+    showToast(e.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed', 'error');
+  }
+  hideLoading();
+});
+
+document.getElementById('googleRegisterBtn').addEventListener('click', async () => {
+  document.getElementById('googleLoginBtn').click();
+});
