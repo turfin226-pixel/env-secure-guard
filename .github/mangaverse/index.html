@@ -178,8 +178,32 @@
   <script src="app.js"></script>
 
   <script>
+    // Force clear ALL old caches and unregister old service workers
+    // This fixes phone showing old vpcoin/store/leaderboard files
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      // Step 1: Unregister ALL old service workers
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(reg => {
+          // Unregister everything except current scope
+          reg.unregister();
+        });
+      });
+
+      // Step 2: Clear ALL old caches
+      if ('caches' in window) {
+        caches.keys().then(keys => {
+          keys.forEach(key => {
+            if (key !== 'mangaverse-v3') {
+              caches.delete(key);
+            }
+          });
+        });
+      }
+
+      // Step 3: Register fresh SW (after short delay to let unregister complete)
+      setTimeout(() => {
+        navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
+      }, 500);
     }
   </script>
 </body>
