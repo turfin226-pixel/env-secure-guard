@@ -1,5 +1,15 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Security boundary
+
+Full user authentication is deferred. Destructive mutations (publishing and
+deleting manga) are secured by the server-only `MANGA_ADMIN_SECRET`. Call
+`/api/admin/manga` with `Authorization: Bearer <secret>` from a trusted admin
+service; never put this value in browser code. Anonymous comments remain
+available, but the server strips HTML, rejects control characters and enforces
+length and identifier limits. Development databases, logs and environment
+files are ignored and must not be committed.
+
 ## Getting Started
 
 First, run the development server:
